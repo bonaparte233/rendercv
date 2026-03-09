@@ -3,6 +3,7 @@ from typing import Literal
 
 import phonenumbers
 
+from rendercv.exception import RenderCVInternalError
 from rendercv.schema.models.rendercv_model import RenderCVModel
 
 from .markdown_parser import markdown_to_typst
@@ -24,10 +25,12 @@ fontawesome_icons = {
     "WhatsApp": "whatsapp",
     "Leetcode": "code",
     "X": "x-twitter",
+    "Bluesky": "bluesky",
     "location": "location-dot",
     "email": "envelope",
     "phone": "phone",
     "website": "link",
+    "Reddit": "reddit",
 }
 
 
@@ -89,7 +92,8 @@ def parse_connections(rendercv_model: RenderCVModel) -> list[Connection]:
 
             case "phone":
                 phones = rendercv_model.cv.phone
-                assert phones is not None
+                if phones is None:
+                    raise RenderCVInternalError("phone key present but value is None")
                 if not isinstance(phones, list):
                     phones = [phones]
 
@@ -110,13 +114,14 @@ def parse_connections(rendercv_model: RenderCVModel) -> list[Connection]:
 
             case "website":
                 websites = rendercv_model.cv.website
-                assert websites
+                if not websites:
+                    raise RenderCVInternalError("website key present but value is None")
                 if not isinstance(websites, list):
                     websites = [websites]
 
                 for website in websites:
                     url = str(website)
-                    body = clean_url(website)
+                    body = clean_url(url)
                     connections.append(
                         Connection(
                             fontawesome_icon=fontawesome_icons[key], url=url, body=body
@@ -133,7 +138,10 @@ def parse_connections(rendercv_model: RenderCVModel) -> list[Connection]:
                 )
 
             case "social_networks":
-                assert rendercv_model.cv.social_networks is not None
+                if rendercv_model.cv.social_networks is None:
+                    raise RenderCVInternalError(
+                        "social_networks key present but value is None"
+                    )
                 for social_network in rendercv_model.cv.social_networks:
                     url = social_network.url
                     if rendercv_model.design.header.connections.display_urls_instead_of_usernames:
@@ -153,7 +161,10 @@ def parse_connections(rendercv_model: RenderCVModel) -> list[Connection]:
                     )
 
             case "custom_connections":
-                assert rendercv_model.cv.custom_connections is not None
+                if rendercv_model.cv.custom_connections is None:
+                    raise RenderCVInternalError(
+                        "custom_connections key present but value is None"
+                    )
                 for custom_connection in rendercv_model.cv.custom_connections:
                     url = (
                         str(custom_connection.url)

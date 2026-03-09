@@ -25,10 +25,10 @@
 
 {% if cv.headline %}
   #headline([{{ cv.headline }}])
-  
+
 {% endif %}
 #connections(
-{% for connection in cv.connections %}
+{% for connection in cv._connections %}
   [{{ connection }}],
 {% endfor %}
 )

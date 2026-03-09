@@ -1,9 +1,11 @@
 from dataclasses import asdict
+from unittest.mock import MagicMock
 
 import pydantic
 import pytest
 
 from rendercv.exception import RenderCVInternalError
+from rendercv.schema.models.custom_error_types import CustomPydanticErrorTypes
 from rendercv.schema.models.rendercv_model import RenderCVModel
 from rendercv.schema.models.validation_context import ValidationContext
 from rendercv.schema.pydantic_error_handling import (
@@ -44,7 +46,9 @@ class TestParseValidationErrors:
                 expected_error["yaml_location"] = tuple(
                     tuple(part) for part in expected_error["yaml_location"]
                 )
-                expected_error["location"] = tuple(expected_error["location"])
+                expected_error["schema_location"] = tuple(
+                    expected_error["schema_location"]
+                )
                 assert validation_error == expected_error, (
                     f"expected {expected_error} but got {validation_error}"
                 )
@@ -76,11 +80,130 @@ cv:
         except pydantic.ValidationError as e:
             errors = parse_validation_errors(e, yaml_object)
             end_date_error = next(
-                (err for err in errors if "end_date" in err.location), None
+                (
+                    err
+                    for err in errors
+                    if err.schema_location is not None
+                    and "end_date" in err.schema_location
+                ),
+                None,
             )
             assert end_date_error is not None
             assert "YYYY-MM-DD, YYYY-MM" in end_date_error.message
             assert 'or "present"' in end_date_error.message
+
+
+class TestParseValidationErrorsWithOverlaySources:
+    def test_design_overlay_error_reports_correct_source_and_location(self):
+        main_yaml = "cv:\n  name: John Doe\n"
+        design_yaml = "design:\n  theme: not_a_valid_theme\n"
+
+        main_cm = read_yaml(main_yaml)
+        design_cm = read_yaml(design_yaml)
+        main_cm["design"] = design_cm["design"]
+        overlay_sources = {"design": design_cm}
+
+        try:
+            RenderCVModel.model_validate(
+                main_cm,
+                context={"context": ValidationContext()},
+            )
+            pytest.fail("Expected ValidationError")
+        except pydantic.ValidationError as e:
+            errors = parse_validation_errors(e, main_cm, overlay_sources)
+
+        design_error = next(
+            (
+                err
+                for err in errors
+                if err.schema_location is not None
+                and err.schema_location[0] == "design"
+            ),
+            None,
+        )
+        assert design_error is not None
+        assert design_error.yaml_source == "design_yaml_file"
+        assert design_error.yaml_location is not None
+
+    def test_main_file_error_has_main_yaml_source(self):
+        main_yaml = (
+            "cv:\n"
+            "  name: John Doe\n"
+            "  phone: not_a_valid_phone\n"
+            "design:\n"
+            "  theme: classic\n"
+        )
+        main_cm = read_yaml(main_yaml)
+
+        try:
+            RenderCVModel.model_validate(
+                main_cm,
+                context={"context": ValidationContext()},
+            )
+            pytest.fail("Expected ValidationError")
+        except pydantic.ValidationError as e:
+            errors = parse_validation_errors(e, main_cm)
+
+        assert len(errors) > 0
+        for error in errors:
+            assert error.yaml_source == "main_yaml_file"
+
+    def test_mixed_errors_from_main_and_overlay(self):
+        main_yaml = "cv:\n  name: John Doe\n  phone: not_a_valid_phone\n"
+        design_yaml = "design:\n  theme: not_a_valid_theme\n"
+
+        main_cm = read_yaml(main_yaml)
+        design_cm = read_yaml(design_yaml)
+        main_cm["design"] = design_cm["design"]
+        overlay_sources = {"design": design_cm}
+
+        try:
+            RenderCVModel.model_validate(
+                main_cm,
+                context={"context": ValidationContext()},
+            )
+            pytest.fail("Expected ValidationError")
+        except pydantic.ValidationError as e:
+            errors = parse_validation_errors(e, main_cm, overlay_sources)
+
+        cv_errors = [
+            err
+            for err in errors
+            if err.schema_location is not None and err.schema_location[0] == "cv"
+        ]
+        design_errors = [
+            err
+            for err in errors
+            if err.schema_location is not None and err.schema_location[0] == "design"
+        ]
+
+        assert len(cv_errors) > 0
+        assert len(design_errors) > 0
+
+        for err in cv_errors:
+            assert err.yaml_source == "main_yaml_file"
+        for err in design_errors:
+            assert err.yaml_source == "design_yaml_file"
+
+
+class TestParseValidationErrorsInternalErrors:
+    def test_raises_for_entry_validation_error_missing_ctx(self):
+        mock_exception = MagicMock(spec=pydantic.ValidationError)
+        mock_exception.errors.return_value = [
+            {
+                "type": CustomPydanticErrorTypes.entry_validation.value,
+                "loc": ("cv",),
+                "msg": "entry validation failed",
+                "input": {},
+            }
+        ]
+
+        input_dict = read_yaml("cv:\n  name: John Doe")
+
+        with pytest.raises(
+            RenderCVInternalError, match="entry_validation error missing"
+        ):
+            parse_validation_errors(mock_exception, input_dict)
 
 
 class TestGetInnerYamlObjectFromItsKey:

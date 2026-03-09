@@ -289,7 +289,7 @@ class TestCreateNestedFieldSpec:
 
         # Check that a variant class was created with default_factory
         assert field.default_factory is not None
-        assert issubclass(field.default_factory, pydantic.BaseModel)  # pyright: ignore[reportArgumentType]
+        assert issubclass(field.default_factory, pydantic.BaseModel)  # ty: ignore[invalid-argument-type]
 
         # Instantiate to check default values
         instance = field.default_factory()
@@ -311,7 +311,7 @@ class TestCreateNestedFieldSpec:
 
         # Check that a variant class was created with default_factory
         assert field.default_factory is not None
-        assert issubclass(field.default_factory, pydantic.BaseModel)  # pyright: ignore[reportArgumentType]
+        assert issubclass(field.default_factory, pydantic.BaseModel)  # ty: ignore[invalid-argument-type]
 
         # Instantiate to check default values
         instance = field.default_factory()
@@ -352,7 +352,7 @@ class TestCreateNestedFieldSpec:
 
         # Check that a variant class was created with default_factory
         assert field.default_factory is not None
-        assert issubclass(field.default_factory, pydantic.BaseModel)  # pyright: ignore[reportArgumentType]
+        assert issubclass(field.default_factory, pydantic.BaseModel)  # ty: ignore[invalid-argument-type]
 
         # Instantiate to check default values
         instance = field.default_factory()
@@ -754,7 +754,7 @@ class TestCreateVariantPydanticModel:
                 pydantic.Field(default=old_default, description=base_description),
             ),
         }
-        Base = pydantic.create_model("Base", **base_fields)
+        Base = pydantic.create_model("Base", **base_fields)  # ty: ignore[no-matching-overload]
 
         VariantClass = create_variant_pydantic_model(
             variant_name="custom",
@@ -894,6 +894,94 @@ class TestCreateVariantPydanticModel:
         instance = VariantClass()
         assert instance.level2.name == "custom_level2"
         assert instance.level2.level3.value == 999
+
+    def test_require_all_fields_raises_on_missing_field(self):
+        defaults = {
+            "discriminator": "variant",
+            "field1": "value",
+            # field2 and field3 are missing
+        }
+
+        with pytest.raises(RenderCVInternalError, match="Missing fields"):
+            create_variant_pydantic_model(
+                variant_name="variant",
+                defaults=defaults,
+                base_class=SimpleModel,
+                discriminator_field="discriminator",
+                class_name_suffix="Class",
+                module_name="test",
+                require_all_fields=True,
+            )
+
+    def test_require_all_fields_raises_on_missing_nested_field(self):
+        class Inner(pydantic.BaseModel):
+            x: int = 1
+            y: int = 2
+
+        class Outer(pydantic.BaseModel):
+            disc: str = "base"
+            inner: Inner = Inner()
+
+        defaults = {
+            "disc": "variant",
+            "inner": {"x": 10},  # y is missing
+        }
+
+        with pytest.raises(RenderCVInternalError, match="Missing nested fields"):
+            create_variant_pydantic_model(
+                variant_name="variant",
+                defaults=defaults,
+                base_class=Outer,
+                discriminator_field="disc",
+                class_name_suffix="Class",
+                module_name="test",
+                require_all_fields=True,
+            )
+
+    def test_require_all_fields_passes_when_all_provided(self):
+        defaults = {
+            "discriminator": "variant",
+            "field1": "value",
+            "field2": 99,
+            "field3": ["x"],
+        }
+
+        VariantClass = create_variant_pydantic_model(
+            variant_name="variant",
+            defaults=defaults,
+            base_class=SimpleModel,
+            discriminator_field="discriminator",
+            class_name_suffix="Class",
+            module_name="test",
+            require_all_fields=True,
+        )
+
+        instance = VariantClass()
+        assert instance.field1 == "value"
+        assert instance.field2 == 99
+        assert instance.field3 == ["x"]
+
+    def test_require_all_fields_false_allows_partial(self):
+        defaults = {
+            "discriminator": "variant",
+            "field1": "value",
+            # field2 and field3 are missing — allowed when require_all_fields=False
+        }
+
+        VariantClass = create_variant_pydantic_model(
+            variant_name="variant",
+            defaults=defaults,
+            base_class=SimpleModel,
+            discriminator_field="discriminator",
+            class_name_suffix="Class",
+            module_name="test",
+            require_all_fields=False,
+        )
+
+        instance = VariantClass()
+        assert instance.field1 == "value"
+        assert instance.field2 == 42  # English/base default preserved
+        assert instance.field3 == ["a", "b"]  # English/base default preserved
 
     def test_preserves_descriptions_for_partial_nested_updates(self):
         class Nested(pydantic.BaseModel):
@@ -1045,8 +1133,8 @@ class TestCreateNestedModelVariantModel:
 
         # The variant should be created without errors
         instance = variant_class()
-        assert instance.x == 100  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.y == 2  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.x == 100  # ty: ignore[unresolved-attribute]
+        assert instance.y == 2  # ty: ignore[unresolved-attribute]
         # nonexistent_field should not be in the instance
         assert not hasattr(instance, "nonexistent_field")
 
@@ -1065,5 +1153,5 @@ class TestCreateNestedModelVariantModel:
         variant_class = create_nested_model_variant_model(ModelWithPlainDict, updates)
 
         instance = variant_class()
-        assert instance.metadata == {"new_key": "new_value"}  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.count == 10  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.metadata == {"new_key": "new_value"}  # ty: ignore[unresolved-attribute]
+        assert instance.count == 10  # ty: ignore[unresolved-attribute]

@@ -1,12 +1,14 @@
 // Import the rendercv function and all the refactored components
-#import "@preview/rendercv:0.1.0": *
+#import "@preview/rendercv:0.2.0": *
 
 // Apply the rendercv template with custom configuration
 #show: rendercv.with(
-  name: "{{ cv.name }}",
-  footer: {{ cv.footer }},
-  top-note: [ {{ cv.top_note }} ],
+  name: "{{ cv._plain_name }}",
+  title: "{{ settings.pdf_title }}",
+  footer: {{ cv._footer }},
+  top-note: [ {{ cv._top_note }} ],
   locale-catalog-language: "{{ locale.language_iso_639_1 }}",
+  text-direction: {% if locale.is_rtl %}rtl{% else %}ltr{% endif %},
   page-size: "{{ design.page.size }}",
   page-top-margin: {{ design.page.top_margin }},
   page-bottom-margin: {{ design.page.bottom_margin }},
@@ -67,6 +69,7 @@
   entries-space-between-columns: {{ design.entries.space_between_columns }},
   entries-allow-page-break: {{ design.entries.allow_page_break|lower }},
   entries-short-second-row: {{ design.entries.short_second_row|lower }},
+  entries-degree-width: {{ design.entries.degree_width }},
   entries-summary-space-left: {{ design.entries.summary.space_left }},
   entries-summary-space-above: {{ design.entries.summary.space_above }},
   entries-highlights-bullet: {% if design.entries.highlights.bullet == "●" %} text(13pt, [•], baseline: -0.6pt) {% else %} "{{ design.entries.highlights.bullet }}" {% endif %},
@@ -76,8 +79,8 @@
   entries-highlights-space-between-items: {{ design.entries.highlights.space_between_items }},
   entries-highlights-space-between-bullet-and-text: {{ design.entries.highlights.space_between_bullet_and_text }},
   date: datetime(
-    year: {{ settings.current_date.year }},
-    month: {{ settings.current_date.month }},
-    day: {{ settings.current_date.day }},
+    year: {{ settings._resolved_current_date.year }},
+    month: {{ settings._resolved_current_date.month }},
+    day: {{ settings._resolved_current_date.day }},
   ),
 )

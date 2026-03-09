@@ -1,4 +1,5 @@
 from datetime import date as Date
+from unittest.mock import patch
 
 import pydantic
 import pytest
@@ -15,8 +16,13 @@ from rendercv.renderer.templater.entry_templates_from_input import (
     remove_not_provided_placeholders,
     render_entry_templates,
 )
+from rendercv.schema.models.cv.entries.education import EducationEntry
+from rendercv.schema.models.cv.entries.experience import ExperienceEntry
 from rendercv.schema.models.cv.entries.normal import NormalEntry
 from rendercv.schema.models.cv.entries.publication import PublicationEntry
+from rendercv.schema.models.design.classic_theme import (
+    EducationEntry as EducationEntryOptions,
+)
 from rendercv.schema.models.design.classic_theme import (
     NormalEntry as NormalEntryOptions,
 )
@@ -25,6 +31,7 @@ from rendercv.schema.models.design.classic_theme import (
 )
 from rendercv.schema.models.design.classic_theme import Templates
 from rendercv.schema.models.locale.english_locale import EnglishLocale
+from rendercv.schema.models.locale.locale import locale_adapter
 
 
 @pytest.mark.parametrize(
@@ -194,13 +201,8 @@ class TestRenderEntryTemplates:
             current_date=Date(2024, 1, 1),
         )
 
-        assert (
-            entry.main_column == "**Solo**"  # pyright: ignore [reportAttributeAccessIssue]
-        )
-        assert (
-            entry.date_and_location_column  # pyright: ignore [reportAttributeAccessIssue]
-            == ""
-        )
+        assert entry.main_column == "**Solo**"  # ty: ignore[unresolved-attribute]
+        assert entry.date_and_location_column == ""  # ty: ignore[unresolved-attribute]
 
     def test_populates_highlights_and_date_placeholders(self):
         entry = NormalEntry(
@@ -218,8 +220,8 @@ class TestRenderEntryTemplates:
             current_date=Date(2024, 1, 1),
         )
 
-        assert entry.main_column == "**Project**\n- Alpha\n- Beta"  # pyright: ignore [reportAttributeAccessIssue]
-        assert entry.date_and_location_column == "Remote\nMay 2023"  # pyright: ignore [reportAttributeAccessIssue]
+        assert entry.main_column == "**Project**\n- Alpha\n- Beta"  # ty: ignore[unresolved-attribute]
+        assert entry.date_and_location_column == "Remote\nMay 2023"  # ty: ignore[unresolved-attribute]
 
     def test_formats_start_and_end_dates_in_custom_template(self):
         entry = NormalEntry(
@@ -240,7 +242,7 @@ class TestRenderEntryTemplates:
             current_date=Date(2024, 1, 1),
         )
 
-        assert entry.main_column == "Jan 2020 / Mar 2021 /  / Jan 2020 – Mar 2021"  # pyright: ignore [reportAttributeAccessIssue]
+        assert entry.main_column == "Jan 2020 / Mar 2021 /  / Jan 2020 – Mar 2021"  # ty: ignore[unresolved-attribute]
 
     def test_handles_authors_doi_and_date_placeholders(self):
         entry = PublicationEntry(
@@ -263,10 +265,87 @@ class TestRenderEntryTemplates:
         )
 
         assert (
-            entry.main_column  # pyright: ignore [reportAttributeAccessIssue]
+            entry.main_column  # ty: ignore[unresolved-attribute]
             == "Alice, Bob | [10.1000/xyz123](https://doi.org/10.1000/xyz123) | Feb"
             " 2024"
         )
+
+    def test_substitutes_locale_phrase_in_education_entry(self):
+        entry = EducationEntry(
+            institution="MIT",
+            area="Computer Science",
+            degree="BS",
+            date="2024-05",
+        )
+
+        templates_with_phrase = Templates(
+            education_entry=EducationEntryOptions(
+                main_column="**INSTITUTION**, DEGREE_WITH_AREA\nSUMMARY\nHIGHLIGHTS",
+                degree_column=None,
+            )
+        )
+
+        entry = render_entry_templates(
+            entry,
+            templates=templates_with_phrase,
+            locale=EnglishLocale(),
+            show_time_span=False,
+            current_date=Date(2024, 1, 1),
+        )
+
+        assert "BS in Computer Science" in entry.main_column  # ty: ignore[unresolved-attribute]
+
+    def test_substitutes_non_english_locale_phrase(self):
+        entry = EducationEntry(
+            institution="Sorbonne",
+            area="Informatique",
+            degree="Licence",
+            date="2024-05",
+        )
+
+        french_locale = locale_adapter.validate_python({"language": "french"})
+        templates_with_phrase = Templates(
+            education_entry=EducationEntryOptions(
+                main_column="**INSTITUTION**, DEGREE_WITH_AREA\nSUMMARY\nHIGHLIGHTS",
+                degree_column=None,
+            )
+        )
+
+        entry = render_entry_templates(
+            entry,
+            templates=templates_with_phrase,
+            locale=french_locale,
+            show_time_span=False,
+            current_date=Date(2024, 1, 1),
+        )
+
+        assert "Licence en Informatique" in entry.main_column  # ty: ignore[unresolved-attribute]
+
+    def test_substitutes_locale_phrase_with_reversed_word_order(self):
+        entry = EducationEntry(
+            institution="University of Tokyo",
+            area="Computer Science",
+            degree="BS",
+            date="2024-05",
+        )
+
+        japanese_locale = locale_adapter.validate_python({"language": "japanese"})
+        templates_with_phrase = Templates(
+            education_entry=EducationEntryOptions(
+                main_column="**INSTITUTION**, DEGREE_WITH_AREA\nSUMMARY\nHIGHLIGHTS",
+                degree_column=None,
+            )
+        )
+
+        entry = render_entry_templates(
+            entry,
+            templates=templates_with_phrase,
+            locale=japanese_locale,
+            show_time_span=False,
+            current_date=Date(2024, 1, 1),
+        )
+
+        assert "Computer Science BS" in entry.main_column  # ty: ignore[unresolved-attribute]
 
     def test_creates_links_for_url_placeholders(self):
         entry = NormalEntry.model_validate(
@@ -289,9 +368,83 @@ class TestRenderEntryTemplates:
         )
 
         assert (
-            entry.main_column  # pyright: ignore [reportAttributeAccessIssue]
+            entry.main_column  # ty: ignore[unresolved-attribute]
             == "Linked Item [example.com/page](https://example.com/page/)"
         )
+
+    @pytest.mark.parametrize(
+        ("institution", "area", "expected_main_column"),
+        [
+            ("", "Computer Science", "Computer Science"),
+            ("MIT", "", "**MIT**"),
+            ("", "", ""),
+        ],
+    )
+    def test_removes_formatting_around_empty_string_fields(
+        self, institution, area, expected_main_column
+    ):
+        entry = EducationEntry(
+            institution=institution,
+            area=area,
+            start_date="2020-01",
+            end_date="2021-01",
+        )
+
+        entry = render_entry_templates(
+            entry,
+            templates=Templates(),
+            locale=EnglishLocale(),
+            show_time_span=False,
+            current_date=Date(2024, 1, 1),
+        )
+
+        assert entry.main_column == expected_main_column  # ty: ignore[unresolved-attribute]
+
+    def test_removes_formatting_around_empty_name(self):
+        entry = NormalEntry(name="")
+
+        entry = render_entry_templates(
+            entry,
+            templates=Templates(),
+            locale=EnglishLocale(),
+            show_time_span=False,
+            current_date=Date(2024, 1, 1),
+        )
+
+        assert entry.main_column == ""  # ty: ignore[unresolved-attribute]
+        assert entry.date_and_location_column == ""  # ty: ignore[unresolved-attribute]
+
+    def test_removes_formatting_around_empty_position(self):
+        entry = ExperienceEntry(
+            company="Google",
+            position="",
+            start_date="2020-01",
+            end_date="2021-01",
+        )
+
+        entry = render_entry_templates(
+            entry,
+            templates=Templates(),
+            locale=EnglishLocale(),
+            show_time_span=False,
+            current_date=Date(2024, 1, 1),
+        )
+
+        assert entry.main_column == "**Google**"  # ty: ignore[unresolved-attribute]
+
+    def test_empty_summary_does_not_produce_admonition(self):
+        entry = NormalEntry(name="Project", summary="")
+
+        entry = render_entry_templates(
+            entry,
+            templates=Templates(),
+            locale=EnglishLocale(),
+            show_time_span=False,
+            current_date=Date(2024, 1, 1),
+        )
+
+        assert "!!!" not in entry.main_column  # ty: ignore[unresolved-attribute]
+        assert entry.main_column == "**Project**"  # ty: ignore[unresolved-attribute]
 
 
 @pytest.mark.parametrize(
@@ -410,6 +563,95 @@ class TestRenderEntryTemplates:
 def test_remove_not_provided_placeholders(entry_templates, entry_fields, expected):
     result = remove_not_provided_placeholders(entry_templates, entry_fields)
     assert result == expected
+
+
+class TestRenderEntryTemplatesInternalErrors:
+    """Test defensive guards when model_dump includes a key but the attribute is None."""
+
+    @pytest.mark.parametrize(
+        ("entry_type", "field_name"),
+        [
+            ("education", "highlights"),
+            ("publication", "authors"),
+        ],
+    )
+    def test_raises_when_field_in_dump_but_attribute_is_none(
+        self, entry_type, field_name
+    ):
+        if entry_type == "education":
+            entry = EducationEntry.model_validate(
+                {
+                    "institution": "MIT",
+                    "area": "CS",
+                    "highlights": ["A"],
+                    "start_date": "2020-01",
+                    "end_date": "2021-01",
+                }
+            )
+        else:
+            entry = PublicationEntry.model_validate(
+                {
+                    "title": "Paper",
+                    "authors": ["John"],
+                    "date": "2024-01",
+                }
+            )
+
+        # Set the attribute to None while model_dump still includes it
+        original_model_dump = entry.model_dump
+
+        def patched_model_dump(**kwargs):
+            result = original_model_dump(**kwargs)
+            result[field_name] = "placeholder"
+            return result
+
+        entry.model_dump = patched_model_dump  # ty: ignore[invalid-assignment]
+        setattr(entry, field_name, None)
+
+        with pytest.raises(RenderCVInternalError):
+            render_entry_templates(
+                entry,
+                templates=Templates(),
+                locale=EnglishLocale(),
+                show_time_span=False,
+                current_date=Date(2024, 1, 1),
+            )
+
+    @pytest.mark.parametrize("field_name", ["start_date", "end_date"])
+    def test_raises_when_date_field_in_dump_but_attribute_is_none(self, field_name):
+        entry = EducationEntry.model_validate(
+            {
+                "institution": "MIT",
+                "area": "CS",
+                "start_date": "2020-01",
+                "end_date": "2021-01",
+            }
+        )
+
+        original_model_dump = entry.model_dump
+
+        def patched_model_dump(**kwargs):
+            result = original_model_dump(**kwargs)
+            result[field_name] = "placeholder"
+            return result
+
+        entry.model_dump = patched_model_dump  # ty: ignore[invalid-assignment]
+        setattr(entry, field_name, None)
+
+        with (
+            patch(
+                "rendercv.renderer.templater.entry_templates_from_input.process_date",
+                return_value="Jan 2020 – Jan 2021",
+            ),
+            pytest.raises(RenderCVInternalError),
+        ):
+            render_entry_templates(
+                entry,
+                templates=Templates(),
+                locale=EnglishLocale(),
+                show_time_span=False,
+                current_date=Date(2024, 1, 1),
+            )
 
 
 @pytest.mark.parametrize(

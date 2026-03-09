@@ -1,12 +1,9 @@
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.8
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
     hooks:
-      - id: ruff
-  # - repo: https://github.com/RobertCraigie/pyright-python
-  #   rev: v1.1.407
-  #   hooks:
-  #     - id: pyright
+      - id: check-added-large-files
+      - id: check-toml
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.1
     hooks:
@@ -14,3 +11,17 @@ repos:
         args:
           - --skip=src/rendercv/schema/models/locale/other_locales/*
           - --exclude-file=schema.json
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.10
+    hooks:
+      - id: ruff-check
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: ty-check
+        name: ty-check
+        language: python
+        entry: ty check src tests
+        pass_filenames: false
+        args: [--python=.venv/]
+        additional_dependencies: ["ty>=0.0.17"]

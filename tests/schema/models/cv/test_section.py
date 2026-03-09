@@ -100,6 +100,12 @@ def test_dictionary_key_to_proper_section_title(key, expected_section_title):
 
 
 def test_section_rejects_none_entries():
-    section_adapter = pydantic.TypeAdapter(Section)
+    section_adapter = pydantic.TypeAdapter[Section](Section)
     with pytest.raises(pydantic.ValidationError):
         section_adapter.validate_python([None])
+
+
+def test_section_accepts_empty_list():
+    section_adapter = pydantic.TypeAdapter[Section](Section)
+    result = section_adapter.validate_python([])
+    assert result == []

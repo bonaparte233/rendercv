@@ -40,11 +40,11 @@ def discover_other_themes() -> list[type[ClassicTheme]]:
 
 # Build discriminated union dynamically
 type BuiltInDesign = Annotated[
-    ClassicTheme | reduce(or_, discover_other_themes()),  # pyright: ignore[reportInvalidTypeForm]
+    ClassicTheme | reduce(or_, discover_other_themes()),  # ty: ignore[invalid-type-form]
     pydantic.Field(discriminator="theme"),
 ]
 available_themes: list[str] = [
     ThemeClass.model_fields["theme"].default
     for ThemeClass in get_args(get_args(BuiltInDesign.__value__)[0])
 ]
-built_in_design_adapter = pydantic.TypeAdapter(BuiltInDesign)
+built_in_design_adapter = pydantic.TypeAdapter[BuiltInDesign](BuiltInDesign)

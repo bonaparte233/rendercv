@@ -1,7 +1,7 @@
 <div align="center">
 <h1>RenderCV</h1>
 
-_CV/resume generator for academics and engineers_
+_Resume builder for academics and engineers, deployed at [rendercv.com](https://rendercv.com)_
 
 [![test](https://github.com/rendercv/rendercv/actions/workflows/test.yaml/badge.svg?branch=main)](https://github.com/rendercv/rendercv/actions/workflows/test.yaml)
 [![coverage](https://coverage-badge.samuelcolvin.workers.dev/rendercv/rendercv.svg)](https://coverage-badge.samuelcolvin.workers.dev/redirect/rendercv/rendercv)
@@ -17,13 +17,13 @@ Write your CV or resume as YAML, then run RenderCV,
 rendercv render John_Doe_CV.yaml
 ```
 
-and get a PDF with perfect typography. No template wrestling. No broken layouts. Consistent spacing, every time.
+and get a PDF with perfect typography.
 
 With RenderCV, you can:
 
 - Version-control your CV — it's just text.
-- Focus on content — don't wory about the formatting.
-- Get perfect typography — pixel-perfect alignment and spacing, handled for you.
+- Focus on content — don't worry about the formatting.
+- Get perfect typography — consistent alignment and spacing, handled for you.
 
 A YAML file like this:
 

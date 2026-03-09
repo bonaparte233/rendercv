@@ -23,31 +23,8 @@ available_font_families = sorted(
         "Poppins",
         "Raleway",
         "XCharter",
-        # Common system fonts
-        "Arial",
-        "Arial Rounded MT",
-        "Arial Unicode MS",
-        "Courier New",
-        "Times New Roman",
-        "Trebuchet MS",
-        "Verdana",
-        "Georgia",
-        "Tahoma",
-        "Impact",
-        "Comic Sans MS",
-        "Lucida Sans Unicode",
-        "Helvetica",
-        "Tahoma",
-        "Times New Roman",
-        "Verdana",
-        "Georgia",
-        "Aptos",
-        "Inter",
-        "Garamond",
-        "Gill Sans",
-        "Didot",
     ]
 )
 
 
-type FontFamily = SkipJsonSchema[str] | Literal[*tuple(available_font_families)]  # pyright: ignore[reportInvalidTypeForm]
+type FontFamily = SkipJsonSchema[str] | Literal[*tuple(available_font_families)]  # ty: ignore[invalid-type-form]

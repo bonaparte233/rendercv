@@ -4,21 +4,31 @@ from typing import Any, Self
 import pydantic
 import pydantic_extra_types.phone_numbers as pydantic_phone_numbers
 
-from ..base import BaseModelWithExtraKeys
+from rendercv.exception import RenderCVInternalError
+
+from ..base import BaseModelWithoutExtraKeys
 from ..path import ExistingPathRelativeToInput
 from .custom_connection import CustomConnection
 from .section import BaseRenderCVSection, Section, get_rendercv_sections
 from .social_network import SocialNetwork
 
-email_validator = pydantic.TypeAdapter(pydantic.EmailStr)
-emails_validator = pydantic.TypeAdapter(list[pydantic.EmailStr])
-website_validator = pydantic.TypeAdapter(pydantic.HttpUrl)
-websites_validator = pydantic.TypeAdapter(list[pydantic.HttpUrl])
-phone_validator = pydantic.TypeAdapter(pydantic_phone_numbers.PhoneNumber)
-phones_validator = pydantic.TypeAdapter(list[pydantic_phone_numbers.PhoneNumber])
+email_validator = pydantic.TypeAdapter[pydantic.EmailStr](pydantic.EmailStr)
+emails_validator = pydantic.TypeAdapter[list[pydantic.EmailStr]](
+    list[pydantic.EmailStr]
+)
+website_validator = pydantic.TypeAdapter[pydantic.HttpUrl](pydantic.HttpUrl)
+websites_validator = pydantic.TypeAdapter[list[pydantic.HttpUrl]](
+    list[pydantic.HttpUrl]
+)
+phone_validator = pydantic.TypeAdapter[pydantic_phone_numbers.PhoneNumber](
+    pydantic_phone_numbers.PhoneNumber
+)
+phones_validator = pydantic.TypeAdapter[list[pydantic_phone_numbers.PhoneNumber]](
+    list[pydantic_phone_numbers.PhoneNumber]
+)
 
 
-class Cv(BaseModelWithExtraKeys):
+class Cv(BaseModelWithoutExtraKeys):
     name: str | None = pydantic.Field(
         default=None,
         examples=["John Doe", "Jane Smith"],
@@ -39,10 +49,11 @@ class Cv(BaseModelWithExtraKeys):
             ["john.doe.1@example.com", "john.doe.2@example.com"],
         ],
     )
-    photo: ExistingPathRelativeToInput | None = pydantic.Field(
+    photo: ExistingPathRelativeToInput | pydantic.HttpUrl | None = pydantic.Field(
         default=None,
-        description="Photo file path, relative to the YAML file.",
-        examples=["photo.jpg", "images/profile.png"],
+        union_mode="left_to_right",
+        description="Photo file path (relative to the YAML file) or a URL.",
+        examples=["photo.jpg", "images/profile.png", "https://example.com/photo.jpg"],
     )
     phone: (
         pydantic_phone_numbers.PhoneNumber
@@ -106,6 +117,10 @@ class Cv(BaseModelWithExtraKeys):
         ],
     )
 
+    _plain_name: str | None = pydantic.PrivateAttr()
+    _connections: list[str] = pydantic.PrivateAttr()
+    _top_note: str = pydantic.PrivateAttr()
+    _footer: str = pydantic.PrivateAttr()
     # Store the order of the keys so that the header can be rendered in the same order
     # that the user defines.
     _key_order: list[str] = pydantic.PrivateAttr(default_factory=list)
@@ -124,7 +139,7 @@ class Cv(BaseModelWithExtraKeys):
         """
         return get_rendercv_sections(self.sections)
 
-    @pydantic.model_validator(mode="wrap")
+    @pydantic.model_validator(mode="wrap")  # ty: ignore[invalid-argument-type]
     @classmethod
     def capture_input_order(
         cls, data: Any, handler: pydantic.ModelWrapValidatorHandler[Self]
@@ -190,7 +205,8 @@ class Cv(BaseModelWithExtraKeys):
         if value is None:
             return None
 
-        assert info.field_name is not None
+        if info.field_name is None:
+            raise RenderCVInternalError("field_name is None in validator")
 
         validators: tuple[
             pydantic.TypeAdapter[pydantic.EmailStr]

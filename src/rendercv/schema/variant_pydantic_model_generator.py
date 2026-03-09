@@ -9,13 +9,35 @@ from rendercv.exception import RenderCVInternalError
 type FieldSpec = tuple[type[Any], FieldInfo]
 
 
+def sanitize_defaults(value: Any) -> Any:
+    """Recursively convert CommentedMap/CommentedSeq to dict/list.
+
+    Why:
+        ruamel.yaml returns custom types that behave like dict/list but confuse Pydantic
+        and JSON schema generation. Stripping metadata ensures clean defaults.
+
+    Args:
+        value: The value to sanitize (can be nested dict/list structure).
+
+    Returns:
+        The sanitized value with standard Python types.
+    """
+    if isinstance(value, list):
+        return [sanitize_defaults(v) for v in value]
+    if isinstance(value, dict):
+        return {k: sanitize_defaults(v) for k, v in value.items()}
+    return value
+
+
 def create_variant_pydantic_model[T: pydantic.BaseModel](
+    *,
     variant_name: str,
     defaults: dict[str, Any],
     base_class: type[T],
     discriminator_field: str,
     class_name_suffix: str,
     module_name: str,
+    require_all_fields: bool = False,
 ) -> type[T]:
     """Create Pydantic model variant with customized defaults.
 
@@ -44,11 +66,18 @@ def create_variant_pydantic_model[T: pydantic.BaseModel](
         discriminator_field: Field to constrain as Literal for tagged unions.
         class_name_suffix: Appended to generated class name.
         module_name: Module path for the generated class.
+        require_all_fields: If True, every field in the base model must be
+            present in defaults (checked recursively for nested models).
 
     Returns:
         New model class with overrides applied.
     """
-    validate_defaults_against_base(defaults, base_class, variant_name)
+    validate_defaults_against_base(
+        defaults, base_class, variant_name, require_all_fields=require_all_fields
+    )
+
+    # Sanitize defaults to remove ruamel.yaml metadata
+    defaults = sanitize_defaults(defaults)
 
     field_specs: dict[str, Any] = {}
     base_fields = base_class.model_fields
@@ -83,6 +112,8 @@ def validate_defaults_against_base(
     defaults: dict[str, Any],
     base_class: type[pydantic.BaseModel],
     variant_name: str,
+    *,
+    require_all_fields: bool = False,
 ) -> None:
     """Validate that all fields in defaults exist in the base model.
 
@@ -94,6 +125,10 @@ def validate_defaults_against_base(
         defaults: Field overrides to validate.
         base_class: Base model defining valid fields.
         variant_name: Variant identifier for error messages.
+        require_all_fields: If True, every field in the base model must be
+            present in defaults. Nested Pydantic model fields are checked
+            recursively. Useful for locales where falling back to English
+            defaults is incorrect.
     """
     base_fields = base_class.model_fields
 
@@ -104,6 +139,42 @@ def validate_defaults_against_base(
                 f"is not defined in {base_class.__name__}"
             )
             raise RenderCVInternalError(message)
+
+    if require_all_fields:
+        missing_fields = set(base_fields.keys()) - set(defaults.keys())
+        if missing_fields:
+            message = (
+                f"Missing fields {sorted(missing_fields)} in defaults for"
+                f" '{variant_name}' (base class: {base_class.__name__})"
+            )
+            raise RenderCVInternalError(message)
+
+        # Recursively check nested Pydantic model fields
+        for field_name, default_value in defaults.items():
+            if not isinstance(default_value, dict):
+                continue
+
+            base_field_info = base_fields[field_name]
+            nested_obj: pydantic.BaseModel | None = None
+
+            if base_field_info.default_factory is not None:
+                factory = cast(Callable[[], Any], base_field_info.default_factory)
+                obj = factory()
+                if isinstance(obj, pydantic.BaseModel):
+                    nested_obj = obj
+            elif isinstance(base_field_info.default, pydantic.BaseModel):
+                nested_obj = base_field_info.default
+
+            if nested_obj is not None:
+                nested_fields = type(nested_obj).model_fields
+                missing_nested = set(nested_fields.keys()) - set(default_value.keys())
+                if missing_nested:
+                    message = (
+                        f"Missing nested fields {sorted(missing_nested)} in"
+                        f" '{field_name}' for '{variant_name}'"
+                        f" (nested class: {type(nested_obj).__name__})"
+                    )
+                    raise RenderCVInternalError(message)
 
 
 def generate_model_name(variant_name: str, class_name_suffix: str) -> str:
@@ -170,7 +241,7 @@ def create_discriminator_field_spec(
     Returns:
         Tuple of Literal type annotation and Field with default value.
     """
-    field_annotation = Literal[discriminator_value]
+    field_annotation = Literal[discriminator_value]  # ty: ignore[invalid-type-form]
 
     # Update description with new default value
     updated_description = update_description_with_new_default(

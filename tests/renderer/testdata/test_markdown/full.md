@@ -18,10 +18,11 @@
 - Telegram: [johndoe](https://t.me/johndoe)
 - WhatsApp: [+14155552671](https://wa.me/+14155552671)
 - X: [johndoe](https://x.com/johndoe)
+- Bluesky: [johndoe.bsky.social](https://bsky.app/profile/johndoe.bsky.social)
+- Reddit: [johndoe](https://reddit.com/user/johndoe)
 
 
 # Text Entries
-
 This is a *TextEntry*. It is only a text and can be useful for sections like **Summary**. To showcase the TextEntry completely, this sentence is added, but it doesn't contain any information.
 
 Another text entry with *markdown* and **bold** text. This is the second text entry.
@@ -29,7 +30,6 @@ Another text entry with *markdown* and **bold** text. This is the second text en
 Third text with [link](https://example.com) and more content.
 
 # Publication Entries
-
 ## **Magneto-Thermal Thin Shell Approximation for 3D Finite Element Analysis of No-Insulation Coils**
 
 J. Doe, ***H. Tom***, S. Doe, A. Andsurname, S. Doe, A. Andsurname
@@ -343,7 +343,6 @@ J. Doe, ***H. Tom***, S. Doe, A. Andsurname, S. Doe, A. Andsurname
 
 
 # Experience Entries
-
 ## **Some Company**, Software Engineer
 
 
@@ -1161,7 +1160,6 @@ Did *this* and this is a **bold** [link](https://example.com). But I must explai
 
 
 # Education Entries
-
 ## **Boğaziçi University**, Mechanical Engineering
 
 
@@ -3051,7 +3049,6 @@ Did *this* and this is a **bold** [link](https://example.com). But I must explai
 
 
 # Normal Entries
-
 ## **My Project**
 
 
@@ -3869,33 +3866,31 @@ Did *this* and this is a **bold** [link](https://example.com). But I must explai
 
 
 # One Line Entries
+**Programming:** Python, C++, JavaScript, MATLAB
 
-- Programming: Python, C++, JavaScript, MATLAB
-
-- Programming: Python, C++, JavaScript, MATLAB
+**Programming:** Python, C++, JavaScript, MATLAB
 
 # Bullet Entries
-
 - This is a bullet entry.
 
 - This is a bullet entry.
 
 # Numbered Entries
+1. This is a numbered entry.
 
-- This is a numbered entry.
-
-- This is a numbered entry.
+1. This is a numbered entry.
 
 # Reversed Numbered Entries
+1. This is a reversed numbered entry.
 
-- This is a reversed numbered entry.
+1. This is a reversed numbered entry.
 
-- This is a reversed numbered entry.
-
-- This is a reversed numbered entry.
+1. This is a reversed numbered entry.
 
 # A Section & with % Special Characters
-
 ## **A Section & with % Special Characters**
 
+
+
+# Empty Section
 

@@ -17,7 +17,7 @@ type PhoneNumberFormatType = Literal["national", "international", "E164"]
 type PageSize = Literal["a4", "a5", "us-letter", "us-executive"]
 
 length_common_description = (
-    "It can be specified with units (cm, in, pt, mm, ex, em). For example, `0.1cm`."
+    "It can be specified with units (cm, in, pt, mm, em). For example, `0.1cm`."
 )
 
 
@@ -590,6 +590,14 @@ class Entries(BaseModelWithoutExtraKeys):
             " value is `true`."
         ),
     )
+    degree_width: TypstDimension = pydantic.Field(
+        default="1cm",
+        description=(
+            "Width of the degree column. "
+            + length_common_description
+            + " The default value is `1cm`."
+        ),
+    )
     summary: Summary = pydantic.Field(
         default_factory=Summary,
         description="Summary text settings.",
@@ -619,7 +627,9 @@ class EducationEntry(BaseModelWithoutExtraKeys):
         description=(
             "Template for education entry main column. Available placeholders:\n-"
             " `INSTITUTION`: Institution name\n- `AREA`: Field of study/major\n-"
-            " `DEGREE`: Degree type (e.g., BS, PhD)\n- `SUMMARY`: Summary text\n-"
+            " `DEGREE`: Degree type (e.g., BS, PhD)\n- `DEGREE_WITH_AREA`: Locale-aware"
+            " phrase combining degree and area (e.g., 'BS in Computer Science')\n-"
+            " `SUMMARY`: Summary text\n-"
             " `HIGHLIGHTS`: Bullet points list\n- `LOCATION`: Location text\n- `DATE`:"
             " Formatted date or date range\n\nYou can also add arbitrary keys to"
             " entries and use them as UPPERCASE placeholders.\n\nThe default value is"
@@ -743,6 +753,8 @@ class Templates(BaseModelWithoutExtraKeys):
             "- `MONTH_ABBREVIATION`: Abbreviated month name (e.g., Jan)\n"
             "- `MONTH`: Month number (e.g., 1)\n"
             "- `MONTH_IN_TWO_DIGITS`: Zero-padded month (e.g., 01)\n"
+            "- `DAY`: Day of the month (e.g., 5)\n"
+            "- `DAY_IN_TWO_DIGITS`: Zero-padded day (e.g., 05)\n"
             "- `YEAR`: Full year (e.g., 2025)\n"
             "- `YEAR_IN_TWO_DIGITS`: Two-digit year (e.g., 25)\n\n"
             "The default value is `*NAME -- PAGE_NUMBER/TOTAL_PAGES*`."
@@ -757,9 +769,10 @@ class Templates(BaseModelWithoutExtraKeys):
             " `NAME`: The CV owner's name from `cv.name`\n- `MONTH_NAME`: Full month"
             " name (e.g., January)\n- `MONTH_ABBREVIATION`: Abbreviated month name"
             " (e.g., Jan)\n- `MONTH`: Month number (e.g., 1)\n- `MONTH_IN_TWO_DIGITS`:"
-            " Zero-padded month (e.g., 01)\n- `YEAR`: Full year (e.g., 2025)\n-"
-            " `YEAR_IN_TWO_DIGITS`: Two-digit year (e.g., 25)\n\nThe default value is"
-            " `*LAST_UPDATED CURRENT_DATE*`."
+            " Zero-padded month (e.g., 01)\n- `DAY`: Day of the month (e.g., 5)\n-"
+            " `DAY_IN_TWO_DIGITS`: Zero-padded day (e.g., 05)\n- `YEAR`: Full year"
+            " (e.g., 2025)\n- `YEAR_IN_TWO_DIGITS`: Two-digit year (e.g., 25)\n\n"
+            "The default value is `*LAST_UPDATED CURRENT_DATE*`."
         ),
     )
     single_date: str = pydantic.Field(
@@ -770,6 +783,8 @@ class Templates(BaseModelWithoutExtraKeys):
             "- `MONTH_ABBREVIATION`: Abbreviated month name (e.g., Jan)\n"
             "- `MONTH`: Month number (e.g., 1)\n"
             "- `MONTH_IN_TWO_DIGITS`: Zero-padded month (e.g., 01)\n"
+            "- `DAY`: Day of the month (e.g., 5)\n"
+            "- `DAY_IN_TWO_DIGITS`: Zero-padded day (e.g., 05)\n"
             "- `YEAR`: Full year (e.g., 2025)\n"
             "- `YEAR_IN_TWO_DIGITS`: Two-digit year (e.g., 25)\n\n"
             "The default value is `MONTH_ABBREVIATION YEAR`."

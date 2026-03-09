@@ -51,15 +51,33 @@ def render_entry_templates[EntryType: Entry](
         key.upper(): value for key, value in entry.model_dump(exclude_none=True).items()
     }
 
+    # Treat empty-string values as not provided so their surrounding
+    # formatting characters (like ** for bold, commas) are cleaned up:
+    entry_fields = {k: v for k, v in entry_fields.items() if v != ""}
+
+    # Expand locale phrases into templates by replacing phrase placeholders
+    # (e.g., DEGREE_WITH_AREA) with their locale-specific template text
+    # (e.g., "DEGREE in AREA" for English, "DEGREE en AREA" for French).
+    # The sub-placeholders (DEGREE, AREA) remain as normal placeholders for the
+    # rest of the pipeline to handle, preserving identical behavior for English.
+    for phrase_name, phrase_template in locale.phrases.model_dump().items():
+        phrase_placeholder = phrase_name.upper()
+        entry_templates = {
+            key: template.replace(phrase_placeholder, phrase_template)
+            for key, template in entry_templates.items()
+        }
+
     # Handle special placeholders:
     if "HIGHLIGHTS" in entry_fields:
         highlights = getattr(entry, "highlights", None)
-        assert highlights is not None
+        if highlights is None:
+            raise RenderCVInternalError("HIGHLIGHTS in fields but highlights is None")
         entry_fields["HIGHLIGHTS"] = process_highlights(highlights)
 
     if "AUTHORS" in entry_fields:
         authors = getattr(entry, "authors", None)
-        assert authors is not None
+        if authors is None:
+            raise RenderCVInternalError("AUTHORS in fields but authors is None")
         entry_fields["AUTHORS"] = process_authors(authors)
 
     if (
@@ -81,7 +99,8 @@ def render_entry_templates[EntryType: Entry](
 
     if "START_DATE" in entry_fields:
         start_date = getattr(entry, "start_date", None)
-        assert start_date is not None
+        if start_date is None:
+            raise RenderCVInternalError("START_DATE in fields but start_date is None")
         entry_fields["START_DATE"] = format_single_date(
             start_date,
             locale=locale,
@@ -90,7 +109,8 @@ def render_entry_templates[EntryType: Entry](
 
     if "END_DATE" in entry_fields:
         end_date = getattr(entry, "end_date", None)
-        assert end_date is not None
+        if end_date is None:
+            raise RenderCVInternalError("END_DATE in fields but end_date is None")
         entry_fields["END_DATE"] = format_single_date(
             end_date,
             locale=locale,
@@ -98,11 +118,11 @@ def render_entry_templates[EntryType: Entry](
         )
 
     if "URL" in entry_fields:
-        entry_fields["URL"] = process_url(entry)
+        entry_fields["URL"] = process_url(entry)  # ty: ignore[invalid-argument-type]
 
     if "DOI" in entry_fields:
-        entry_fields["URL"] = process_url(entry)
-        entry_fields["DOI"] = process_doi(entry)
+        entry_fields["URL"] = process_url(entry)  # ty: ignore[invalid-argument-type]
+        entry_fields["DOI"] = process_doi(entry)  # ty: ignore[invalid-argument-type]
 
     if "SUMMARY" in entry_fields:
         entry_fields["SUMMARY"] = process_summary(entry_fields["SUMMARY"])
@@ -268,9 +288,9 @@ def process_url(entry: Entry) -> str:
     """
     if isinstance(entry, PublicationEntry) and entry.doi:
         return process_doi(entry)
-    if hasattr(entry, "url") and entry.url:  # pyright: ignore[reportAttributeAccessIssue]
-        url = entry.url  # pyright: ignore[reportAttributeAccessIssue]
-        return f"[{clean_url(url)}]({url})"
+    if hasattr(entry, "url") and entry.url:
+        url = entry.url
+        return f"[{clean_url(url)}]({url})"  # ty: ignore[invalid-argument-type]
     raise RenderCVInternalError("URL is not provided for this entry.")
 
 

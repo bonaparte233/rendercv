@@ -46,7 +46,7 @@ def to_typst_string(elem: Element) -> str:
 
             case "a":
                 # Link: [text](url) -> #link("url")[text]
-                href = child.get("href", "")
+                href = child.get("href") if child.get("href") else "https://example.com"
                 inner = to_typst_string(child)
                 child_content = f'#link("{href}")[{inner}]'
 

@@ -155,6 +155,8 @@ def full_rendercv_model(testdata_dir: pathlib.Path) -> RenderCVModel:
             SocialNetwork(network="Telegram", username="johndoe"),
             SocialNetwork(network="WhatsApp", username="+14155552671"),
             SocialNetwork(network="X", username="johndoe"),
+            SocialNetwork(network="Bluesky", username="johndoe.bsky.social"),
+            SocialNetwork(network="Reddit", username="johndoe"),
         ],
         sections={
             "Text Entries": [
@@ -203,6 +205,7 @@ def full_rendercv_model(testdata_dir: pathlib.Path) -> RenderCVModel:
             "A Section & with % Special Characters": [
                 NormalEntry(name="A Section & with % Special Characters")
             ],
+            "Empty Section": [],
         },
     )
 

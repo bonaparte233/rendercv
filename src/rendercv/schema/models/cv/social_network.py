@@ -9,7 +9,7 @@ import pydantic_extra_types.phone_numbers as pydantic_phone_numbers
 from ...pydantic_error_handling import CustomPydanticErrorTypes
 from ..base import BaseModelWithoutExtraKeys
 
-url_validator = pydantic.TypeAdapter(pydantic.HttpUrl)
+url_validator = pydantic.TypeAdapter[pydantic.HttpUrl](pydantic.HttpUrl)
 type SocialNetworkName = Literal[
     "LinkedIn",
     "GitHub",
@@ -26,6 +26,8 @@ type SocialNetworkName = Literal[
     "WhatsApp",
     "Leetcode",
     "X",
+    "Bluesky",
+    "Reddit",
 ]
 available_social_networks = get_args(SocialNetworkName.__value__)
 url_dictionary: dict[SocialNetworkName, str] = {
@@ -43,6 +45,8 @@ url_dictionary: dict[SocialNetworkName, str] = {
     "WhatsApp": "https://wa.me/",
     "Leetcode": "https://leetcode.com/u/",
     "X": "https://x.com/",
+    "Bluesky": "https://bsky.app/profile/",
+    "Reddit": "https://reddit.com/user/",
 }
 
 
@@ -114,11 +118,18 @@ class SocialNetwork(BaseModelWithoutExtraKeys):
                         CustomPydanticErrorTypes.other.value,
                         "IMDB name should be in the format 'nmXXXXXXX'.",
                     )
-
+            case "Bluesky":
+                bluesky_username_pattern = r"^([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+                if not re.fullmatch(bluesky_username_pattern, username):
+                    raise pydantic_core.PydanticCustomError(
+                        CustomPydanticErrorTypes.other.value,
+                        "Bluesky username should be a valid handle with no '@' (e.g.,"
+                        " 'username.bsky.social' or 'domain.com').",
+                    )
             case "WhatsApp":
-                phone_validator = pydantic.TypeAdapter(
+                phone_validator = pydantic.TypeAdapter[
                     pydantic_phone_numbers.PhoneNumber
-                )
+                ](pydantic_phone_numbers.PhoneNumber)
                 try:
                     phone_validator.validate_python(username)
                 except pydantic.ValidationError as e:
@@ -127,6 +138,15 @@ class SocialNetwork(BaseModelWithoutExtraKeys):
                         "WhatsApp username should be your phone number with country"
                         " code in international format (e.g., +1 for USA, +44 for UK).",
                     ) from e
+            case "Reddit":
+                reddit_username_pattern = r"^[a-zA-Z0-9_-]{3,23}$"
+                if not re.fullmatch(reddit_username_pattern, username):
+                    raise pydantic_core.PydanticCustomError(
+                        CustomPydanticErrorTypes.other.value,
+                        "Reddit username should be made up of uppercase/lowercase"
+                        " letters, numbers, underscores, and hyphens between 3 and 23"
+                        " characters.",
+                    )
 
         return username
 

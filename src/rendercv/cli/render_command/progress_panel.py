@@ -1,14 +1,39 @@
-import contextlib
 import pathlib
 from dataclasses import dataclass
 
 import rich.box
+import rich.console
 import rich.live
 import rich.panel
 import rich.table
 import typer
 
 from rendercv.exception import RenderCVUserError, RenderCVValidationError
+
+
+def format_validation_error_location(error_object: RenderCVValidationError) -> str:
+    """Format schema/YAML location for validation error table rows.
+
+    Why:
+        YAML parsing errors don't have schema locations, so we show source file
+        and line/column coordinates to keep the location column actionable.
+
+    Args:
+        error_object: Validation error with schema and YAML location metadata.
+
+    Returns:
+        Human-readable location string for table display.
+    """
+    if error_object.schema_location is not None:
+        return ".".join(error_object.schema_location)
+
+    if error_object.yaml_location is None:
+        return error_object.yaml_source
+
+    (start_line, _), (end_line, _) = error_object.yaml_location
+    if start_line == end_line:
+        return f"{error_object.yaml_source}: line {start_line}"
+    return f"{error_object.yaml_source}: line {start_line} to line {end_line}"
 
 
 class ProgressPanel(rich.live.Live):
@@ -27,7 +52,6 @@ class ProgressPanel(rich.live.Live):
     """
 
     def __init__(self, quiet: bool = False):
-        self.quiet = quiet
         self.completed_steps: list[CompletedStep] = []
         super().__init__(
             rich.panel.Panel(
@@ -36,6 +60,7 @@ class ProgressPanel(rich.live.Live):
                 title_align="left",
                 border_style="bright_black",
             ),
+            console=rich.console.Console(quiet=quiet),
             refresh_per_second=4,
         )
 
@@ -63,18 +88,17 @@ class ProgressPanel(rich.live.Live):
         Args:
             title: Panel title text.
         """
-        if self.quiet:
-            return
-
         lines: list[str] = []
         for step in self.completed_steps:
             paths_str = ""
             if step.paths:
-                with contextlib.suppress(ValueError):
-                    step.paths = [
+                try:
+                    paths = [
                         path.relative_to(pathlib.Path.cwd()) for path in step.paths
                     ]
-                paths_as_strings = [f"./{path}" for path in step.paths]
+                except ValueError:
+                    paths = step.paths
+                paths_as_strings = [f"./{path}" for path in paths]
                 paths_str = "; ".join(paths_as_strings)
 
             timing = f"[bold green]{step.timing_ms + ' ms':<8}[/bold green]"
@@ -128,7 +152,7 @@ class ProgressPanel(rich.live.Live):
 
         for error_object in errors:
             table.add_row(
-                ".".join(error_object.location),
+                format_validation_error_location(error_object),
                 error_object.input,
                 error_object.message,
             )
@@ -136,7 +160,7 @@ class ProgressPanel(rich.live.Live):
         self.update(
             rich.panel.Panel(
                 table,
-                title="[bold red]There are errors in the input file![/bold red]",
+                title="[bold red]There are validation errors![/bold red]",
                 title_align="left",
                 border_style="bold red",
             )

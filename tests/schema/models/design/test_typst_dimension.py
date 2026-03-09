@@ -14,14 +14,13 @@ class TestTypstDimension:
             "0.5in",
             "12pt",
             "1.25em",
-            "2ex",
             "100pt",
             "0.1cm",
             "-1cm",
         ],
     )
     def test_accepts_valid_dimensions(self, valid_dimension):
-        typst_dimension_adapter = pydantic.TypeAdapter(TypstDimension)
+        typst_dimension_adapter = pydantic.TypeAdapter[TypstDimension](TypstDimension)
         result = typst_dimension_adapter.validate_python(valid_dimension)
         assert result == valid_dimension
 
@@ -34,6 +33,7 @@ class TestTypstDimension:
             "1 cm",
             "1.5.5cm",
             "1px",
+            "2ex",
             "1.em",
             "1.5rem",
             "cm1",
@@ -41,7 +41,7 @@ class TestTypstDimension:
         ],
     )
     def test_rejects_invalid_dimensions(self, invalid_dimension):
-        typst_dimension_adapter = pydantic.TypeAdapter(TypstDimension)
+        typst_dimension_adapter = pydantic.TypeAdapter[TypstDimension](TypstDimension)
         with pytest.raises(
             pydantic.ValidationError, match="must be a number followed by a unit"
         ):
@@ -49,10 +49,10 @@ class TestTypstDimension:
 
     @pytest.mark.parametrize(
         "unit",
-        ["cm", "in", "pt", "mm", "ex", "em"],
+        ["cm", "in", "pt", "mm", "em"],
     )
     def test_supports_all_units(self, unit):
-        typst_dimension_adapter = pydantic.TypeAdapter(TypstDimension)
+        typst_dimension_adapter = pydantic.TypeAdapter[TypstDimension](TypstDimension)
         dimension = f"1.5{unit}"
         result = typst_dimension_adapter.validate_python(dimension)
         assert result == dimension
