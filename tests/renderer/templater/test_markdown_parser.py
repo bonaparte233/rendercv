@@ -1,4 +1,8 @@
+import string
+
 import pytest
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
 
 from rendercv.renderer.templater.markdown_parser import (
     escape_typst_characters,
@@ -53,6 +57,37 @@ class TestEscapeTypstCharacters:
         expected = "$a*b + c$ and \\#1"
 
         assert escape_typst_characters(string) == expected
+
+    @settings(deadline=None)
+    @given(text=st.text(max_size=200))
+    def test_never_crashes_on_arbitrary_input(self, text: str) -> None:
+        escape_typst_characters(text)
+
+    @settings(deadline=None)
+    @given(
+        text=st.text(
+            alphabet=st.characters(
+                categories=(), include_characters=string.ascii_letters + " "
+            ),
+            min_size=1,
+            max_size=50,
+        )
+    )
+    def test_leaves_plain_ascii_letters_unchanged(self, text: str) -> None:
+        assume("*" not in text)
+        assert escape_typst_characters(text) == text
+
+    @settings(deadline=None)
+    @given(
+        name=st.from_regex(r"[a-zA-Z][a-zA-Z-]{0,10}", fullmatch=True),
+        arg=st.from_regex(r"[a-zA-Z0-9 ]{0,10}", fullmatch=True),
+    )
+    def test_preserves_typst_commands_with_random_content(
+        self, name: str, arg: str
+    ) -> None:
+        command = f"#{name}[{arg}]"
+        result = escape_typst_characters(command)
+        assert command in result
 
 
 @pytest.mark.parametrize(
@@ -183,6 +218,92 @@ class TestEscapeTypstCharacters:
 )
 def test_markdown_to_typst(markdown_string, expected_typst_string):
     assert markdown_to_typst(markdown_string) == expected_typst_string
+
+
+class TestMarkdownToTypst:
+    def test_emphasis_markers_do_not_interact_across_lines(self):
+        result = markdown_to_typst("**bold text**\n*italic text*")
+        assert result == "#strong[bold text]\n#emph[italic text]"
+
+    def test_nested_emphasis_across_lines_stay_independent(self):
+        result = markdown_to_typst("**a *b* c**\n*d **e** f*")
+        assert "#strong[" in result.split("\n")[0]
+        assert "#emph[" in result.split("\n")[1]
+        for line in result.split("\n"):
+            assert line.count("[") == line.count("]")
+
+    def test_admonition_still_works_with_line_processing(self):
+        result = markdown_to_typst("**bold**\n!!! summary\n    Some text\n*italic*")
+        lines = result.split("\n")
+        assert lines[0] == "#strong[bold]"
+        assert lines[1] == "#summary[Some text]"
+        assert lines[2] == "#emph[italic]"
+
+    def test_empty_lines_preserved(self):
+        result = markdown_to_typst("**bold**\n\n*italic*")
+        assert result == "#strong[bold]\n\n#emph[italic]"
+
+    @settings(deadline=None)
+    @given(text=st.text(max_size=300))
+    def test_never_crashes_on_arbitrary_input(self, text: str) -> None:
+        markdown_to_typst(text)
+
+    @settings(deadline=None)
+    @given(
+        text=st.text(
+            alphabet=st.characters(
+                categories=(),
+                include_characters=string.ascii_letters + string.digits + " ",
+            ),
+            min_size=0,
+            max_size=100,
+        )
+    )
+    def test_preserves_plain_text_content(self, text: str) -> None:
+        assume("*" not in text and "!" not in text)
+        assume(text.strip())
+        result = markdown_to_typst(text)
+        assert result.split() == text.split()
+
+    @settings(deadline=None)
+    @given(
+        text=st.text(max_size=200).filter(
+            lambda s: (
+                "!!!" not in s and "\t" not in s and "    " not in s and "\r" not in s
+            )
+        )
+    )
+    def test_preserves_line_count_for_non_admonition(self, text: str) -> None:
+        result = markdown_to_typst(text)
+        assert result.count("\n") == text.count("\n")
+
+    @settings(deadline=None)
+    @given(
+        word=st.text(
+            alphabet=st.characters(
+                categories=(), include_characters=string.ascii_letters + string.digits
+            ),
+            min_size=1,
+            max_size=20,
+        )
+    )
+    def test_bold_produces_strong(self, word: str) -> None:
+        result = markdown_to_typst(f"**{word}**")
+        assert f"#strong[{word}]" in result
+
+    @settings(deadline=None)
+    @given(
+        word=st.text(
+            alphabet=st.characters(
+                categories=(), include_characters=string.ascii_letters + string.digits
+            ),
+            min_size=1,
+            max_size=20,
+        )
+    )
+    def test_italic_produces_emph(self, word: str) -> None:
+        result = markdown_to_typst(f"*{word}*")
+        assert f"#emph[{word}]" in result
 
 
 def test_markdown_to_html():

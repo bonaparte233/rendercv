@@ -185,9 +185,8 @@ def cli_command_render(
             help="If provided, RenderCV will not print any messages.",
         ),
     ] = False,
-    # This is a dummy argument for the help message for
-    # extra_data_model_override_argumets:
-    _: Annotated[
+    # Dummy argument that only exists to show the override syntax in --help:
+    yaml_field_override: Annotated[  # noqa: ARG001
         str | None,
         typer.Option(
             "--YAMLLOCATION",
@@ -196,8 +195,17 @@ def cli_command_render(
         ),
     ] = None,
     extra_data_model_override_arguments: typer.Context = None,  # ty: ignore[invalid-parameter-default]
-):
-    input_file_path = pathlib.Path(input_file_name)
+) -> None:
+    input_file_path = pathlib.Path(input_file_name).absolute()
+
+    # Resolve design/locale overlay files from YAML settings when not
+    # provided via CLI flags. collect_input_file_paths already handles
+    # parsing the YAML and resolving paths relative to the input file.
+    resolved_files = collect_input_file_paths(input_file_path, design, locale, settings)
+    if design is None and "design" in resolved_files:
+        design = resolved_files["design"]
+    if locale is None and "locale" in resolved_files:
+        locale = resolved_files["locale"]
 
     arguments: BuildRendercvModelArguments = {
         "design_yaml_file": design.read_text(encoding="utf-8") if design else None,
@@ -222,11 +230,7 @@ def cli_command_render(
     with ProgressPanel(quiet=quiet) as progress_panel:
         if watch:
             run_function_if_files_change(
-                list(
-                    collect_input_file_paths(
-                        input_file_path, design, locale, settings
-                    ).values()
-                ),
+                list(resolved_files.values()),
                 lambda: run_rendercv(input_file_path, progress_panel, **arguments),
             )
         else:

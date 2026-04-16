@@ -1,6 +1,9 @@
+import atexit
 import functools
 import pathlib
 import shutil
+import tempfile
+import tomllib
 
 import rendercv_fonts
 import typst
@@ -110,6 +113,95 @@ def copy_photo_next_to_typst_file(
             shutil.copy(photo_path, copy_to)
 
 
+def read_version_from_typst_toml(typst_toml_path: pathlib.Path) -> str:
+    """Read the version field from a typst.toml file.
+
+    Why:
+        Multiple bundled Typst packages need their version extracted for
+        directory layout. Centralizes the parsing logic.
+
+    Args:
+        typst_toml_path: Path to the typst.toml file.
+
+    Returns:
+        The version string.
+    """
+    data = tomllib.loads(typst_toml_path.read_text(encoding="utf-8"))
+    try:
+        return data["package"]["version"]
+    except KeyError as e:
+        message = f"Could not find version in {typst_toml_path}"
+        raise RenderCVInternalError(message) from e
+
+
+def install_bundled_typst_package(
+    bundled_path: pathlib.Path,
+    package_name: str,
+    temp_dir: pathlib.Path,
+    typ_files: list[str],
+) -> None:
+    """Copy a bundled Typst package into the temporary package cache.
+
+    Why:
+        The Typst compiler expects packages in a directory structure of
+        preview/{name}/{version}/. This copies the required files from
+        a bundled package into that layout.
+
+    Args:
+        bundled_path: Path to the bundled package directory.
+        package_name: Name of the Typst package (used in directory structure).
+        temp_dir: Root of the temporary package cache.
+        typ_files: List of .typ filenames to copy alongside typst.toml.
+    """
+    version = read_version_from_typst_toml(bundled_path / "typst.toml")
+    package_directory = temp_dir / "preview" / package_name / version
+    package_directory.mkdir(parents=True)
+    shutil.copy2(bundled_path / "typst.toml", package_directory / "typst.toml")
+    for typ_file in typ_files:
+        shutil.copy2(bundled_path / typ_file, package_directory / typ_file)
+
+
+@functools.lru_cache(maxsize=1)
+def get_package_path() -> pathlib.Path:
+    """Set up local Typst package resolution from bundled Typst packages.
+
+    Why:
+        Bundled Typst packages (rendercv, fontawesome) are shipped inside the
+        Python package so that PDF compilation works without downloading from
+        Typst Universe. The Typst compiler expects packages in a directory
+        structure of preview/{name}/{version}/, so this creates a temporary
+        directory with that layout.
+
+    Returns:
+        Path to temporary package cache directory.
+    """
+    temp_dir = pathlib.Path(tempfile.mkdtemp(prefix="rendercv-pkg-"))
+    atexit.register(shutil.rmtree, str(temp_dir), True)
+
+    renderer_dir = pathlib.Path(__file__).parent
+
+    install_bundled_typst_package(
+        bundled_path=renderer_dir / "rendercv_typst",
+        package_name="rendercv",
+        temp_dir=temp_dir,
+        typ_files=["lib.typ"],
+    )
+
+    install_bundled_typst_package(
+        bundled_path=renderer_dir / "typst_fontawesome",
+        package_name="fontawesome",
+        temp_dir=temp_dir,
+        typ_files=[
+            "lib.typ",
+            "lib-impl.typ",
+            "lib-gen-func.typ",
+            "lib-gen-map.typ",
+        ],
+    )
+
+    return temp_dir
+
+
 @functools.lru_cache(maxsize=1)
 def get_typst_compiler(
     input_file_path: pathlib.Path | None,
@@ -141,4 +233,5 @@ def get_typst_compiler(
                 else pathlib.Path.cwd() / "fonts"
             ),
         ],
+        package_path=get_package_path(),
     )
